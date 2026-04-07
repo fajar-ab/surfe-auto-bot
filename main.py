@@ -25,7 +25,7 @@ def match_images(images: list):
     for image_name in images:
         image_path = Path.cwd() / "images" / image_name
         try:
-            result = pyautogui.locateOnScreen( str(image_path), confidence=0.5)
+            result = pyautogui.locateOnScreen( str(image_path), confidence=0.8)
             if result:
                 return  result
         except pyautogui.ImageNotFoundException:
@@ -69,17 +69,18 @@ def click_task():
     pyautogui.click(point_x, point_y, duration=0.5)
 
 def on_task_finished():
-    result = wait_for_images(["visit_complite1.png", "visit_complite2.png"], timeout=120)
+    result = wait_for_images(
+        ["visit_complite1.png", "visit_complite2.png", "visit_complite3.png", "visit_complite4.png"],
+          timeout=120)
     if result:
-        print(result)
-        point_x, point_y = pyautogui.center(result)
-        pyautogui.click(point_x, point_y, duration=0.5)
+        close_tab()
 
-open_extension()
-time.sleep(2)
-if cek_verification_required():
-    clik_solve_captcha()
-    on_captcha_finished()
-elif is_task_surfe_exists():
-    click_task()
-    on_task_finished()
+while True:
+    open_extension()
+    time.sleep(2)
+    if cek_verification_required():
+        clik_solve_captcha()
+        on_captcha_finished()
+    elif is_task_surfe_exists():
+        click_task()
+        on_task_finished()
