@@ -3,3 +3,4 @@ Pillow
 pyscreeze
 opencv-python
 python-xlib
+requests
