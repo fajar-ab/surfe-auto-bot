@@ -1,8 +1,16 @@
 from pathlib import Path
 import pyautogui
+import pyperclip
 import time
 import os
 
+# ================= CONFIG =================
+CONFIDENCE = 0.8
+INTERVAL = 1
+IMAGE_CACHE = {}
+VISIT_TIMEOUT = 300
+
+# ================= WINDOW CONTROL =================
 def browser_fokus():
     os.system("xdotool windowactivate --sync $(xdotool search --onlyvisible --class 'Brave' | tail -1)")
 
@@ -13,113 +21,187 @@ def open_extension():
 
 def close_tab():
     browser_fokus()
-    time.sleep(0.5)
+    time.sleep(0.3)
     pyautogui.hotkey('ctrl', 'w')
 
 def refresh_tab():
     browser_fokus()
-    time.sleep(0.5)
+    time.sleep(0.3)
     pyautogui.hotkey('ctrl', 'r')
 
-def get_image_files(folder_name: str):
+def get_current_url():
+    browser_fokus()
+    time.sleep(0.3)
+    pyautogui.hotkey('ctrl', 'l') 
+    time.sleep(0.2)
+    pyautogui.hotkey('ctrl', 'c')
+    time.sleep(0.2)
+
+    return pyperclip.paste()
+
+# ================= IMAGE HANDLING =================
+def load_images(folder_name: str):
     folder_path = Path.cwd() / "images" / folder_name
     extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp')
-    
-    image_files = []
-    if folder_path.exists() and folder_path.is_dir():
-        for ext in extensions:
-            found_files = sorted(list(folder_path.glob(ext)))
-            image_files.extend(found_files)
-    else:
-        print(f"[Warning] Folder {folder_path} tidak ditemukan.")
-        
-    return image_files
 
-def match_images(path_images: list, min_search_time: float = 1):
-    if not path_images:
-        return None
+    if not folder_path.exists():
+        print(f"[WARNING] Folder tidak ditemukan: {folder_path}")
+        return []
 
-    for image_path in path_images:
+    images = []
+    for ext in extensions:
+        images.extend(sorted(folder_path.glob(ext)))
+
+    return images
+
+
+def get_images(folder_name: str):
+    if folder_name not in IMAGE_CACHE:
+        IMAGE_CACHE[folder_name] = load_images(folder_name)
+    return IMAGE_CACHE[folder_name]
+
+
+# ================= CORE ENGINE =================
+def find_image(images, min_search_time=0.5):
+    for img in images:
         try:
-            result = pyautogui.locateOnScreen(str(image_path), confidence=0.8, minSearchTime=min_search_time)
+            result = pyautogui.locateOnScreen(
+                str(img),
+                confidence=CONFIDENCE,
+                grayscale=True,
+                minSearchTime=min_search_time
+            )
             if result:
                 return result
-        except (pyautogui.ImageNotFoundException, OSError):
+        except Exception:
             continue
     return None
 
-def wait_for_images(folder_name: str, timeout=60, interval=1):
-    start_time = time.time()
-    
-    path_images = get_image_files(folder_name)
-    
-    if not path_images:
-        print(f"[WARNING!] Tidak ada gambar di folder: {folder_name}")
+
+def wait_for(folder, timeout=60, interval=INTERVAL):
+    start = time.time()
+    images = get_images(folder)
+
+    if not images:
         return None
 
-    while time.time() - start_time < timeout:
-        elapsed = int(time.time() - start_time)
-        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Wait...", end="")
-        result = match_images(path_images)
-        if result:
-            return result
-        time.sleep(interval) 
+    while time.time() - start < timeout:
+        elapsed = int(time.time() - start)
+        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Waiting ... ({folder})", end="")
 
+        result = find_image(images)
+        if result:
+            print()
+            return result
+
+        time.sleep(interval)
+
+    print()
     return None
 
-def click_button(match_result, duration=0.5):
-    point_x, point_y = pyautogui.center(match_result)
-    pyautogui.click(point_x, point_y, duration=duration)
 
-def verification_required_check():
-    return match_images(get_image_files("verification_required"))
+def click(match_result, duration=0.3):
+    if not match_result:
+        return False
 
-def verification_click_solve_captcha():
-    match_result = match_images(get_image_files("verification_captcha_button"))
-    click_button(match_result)
+    x, y = pyautogui.center(match_result)
+    pyautogui.click(x, y, duration=duration)
+    return True
 
-def verification_click_re_captcha():
-    match_result = match_images(get_image_files("verification_re_captcha"), min_search_time=60)
-    click_button(match_result)
 
-def verification_captcha_finished():
-    result = wait_for_images(folder_name="verification_captcha_finished", timeout=120)
-    if result:
-        print("[VERIVICATION CAPTHA FINISH]")
+def click_from_folder(folder, min_search_time=0.5):
+    result = find_image(get_images(folder), min_search_time)
+    return click(result)
+
+
+# ================= VERIFICATION =================
+def handle_verification():
+    if not find_image(get_images("verification_required")):
+        return False
+
+    print("[VERIFICATION REQUIRED]")
+
+    if click_from_folder("verification_captcha_button"):
+        print("[CLICK CAPTCHA BUTTON]")
+
+    if click_from_folder("verification_re_captcha", min_search_time=5):
+        print("[SOLVING CAPTCHA]")
+
+    if wait_for("verification_captcha_finished", timeout=120):
+        print("[CAPTCHA FINISHED]")
         close_tab()
 
-def task_surfe_exists_check():
-    return match_images(get_image_files("task_surfe_exists_check"), min_search_time=60)
+    return True
+
+# ================= VISIT =================
+def handle_visit(timeout=20):
+    # if not find_image(get_images("error_page")):
+    #     print("[PAGE ERROR]")
+    #     close_tab()
+    #     return False
+
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        url = get_current_url()
+        if not url:
+            continue
+
+        if "https://surfe.be/video/view/1002703" in url:
+            surfe_video_view()
+            
+        if wait_for("task_wait_finished", timeout=VISIT_TIMEOUT):
+            print("[TASK FINISHED]")
+            close_tab()
+
+            return True
     
-def task_click_start():
-    match_result = match_images(get_image_files("task_start_buttom"))
-    click_button(match_result)
+    return False
 
-def task_surfe_video_view():
-    match_result = match_images(get_image_files("surfe_video_view"), min_search_time=60)
-    click_button(match_result)
 
-def task_wait_finished():
-    result = wait_for_images(folder_name="task_wait_finished", timeout=320)
-    if result:
-        close_tab()
+def surfe_video_view():
+    if click_from_folder("surfe_video_view", min_search_time=20):
+        print("[Video Surfe View]")
 
-while True:
-    open_extension()
-    print("[OPEN EXTENSION]")
-    time.sleep(3)
-    if verification_required_check():
-        print("[VERIVICATION REQUIRED]")
-        verification_click_solve_captcha()
-        print("[VERIVICATION CAPTHA CLICK]")
-        verification_click_re_captcha()
-        print("[VERIVICATION CAPTHA SOLVE]")
-        verification_captcha_finished()
-    elif task_surfe_exists_check():
-        print("[TASK EXISTS]")
-        task_click_start()
-        print("[TASK START CLICK]")
-        task_wait_finished()
-        print("\n[TASK SFINISH]")
-    else:
-        break
+    return True
+
+
+# ================= EXTENSION TASK =================
+def handle_extension_task():
+    if find_image(get_images("task_surfe_exists"), min_search_time=2):
+        print("[TASK FOUND]")
+
+        if click_from_folder("task_start_buttom"):
+            print("[CLICK START]")
+        
+        return False
+    
+    if find_image(get_images("task_surfe_unexists"), min_search_time=2):
+        print("[TASK NOT FOUND]")
+
+        return True
+
+    return True
+
+
+# ================= MAIN LOOP =================
+def main():
+    while True:
+        open_extension()
+        print("[OPEN EXTENSION]")
+        time.sleep(3)
+
+        if handle_verification():
+            continue
+
+        if handle_extension_task():
+            continue
+
+        if handle_visit():
+            continue
+
+
+
+if __name__ == "__main__":
+    main()
+
