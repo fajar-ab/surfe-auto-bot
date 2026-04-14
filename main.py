@@ -126,7 +126,7 @@ def handle_verification():
         print("[SOLVING CAPTCHA]")
 
     if wait_for("verification_captcha_finished", timeout=120):
-        print("\n[CAPTCHA FINISHED]")
+        print("[CAPTCHA FINISHED]")
         close_tab()
 
     return True
@@ -138,7 +138,7 @@ def handle_visit(timeout=30):
 
     while time.time() - start_time < timeout:
         elapsed = int(time.time() - start_time)
-        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...", end="")
+        print(f"[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...")
 
         url = get_current_url()
         if not url or "https://surfe.be/meta-redirect" in url:
@@ -148,19 +148,19 @@ def handle_visit(timeout=30):
             surfe_video_view()
 
         if find_image(get_images("visit_error_page")):
-            print("\n[PAGE ERROR]")
+            print("[PAGE ERROR]")
             close_tab()
 
             success = handle_surfe_report("no_reward")
             if not success:
-                print("\n[REPORT FAILED]")
+                print("[REPORT FAILED]")
 
             close_tab()
 
             return False
 
         if find_image(get_images("visit_wait_finished")):
-            print("\n[TASK FINISHED]")
+            print("[TASK FINISHED]")
             close_tab()
 
             return True
@@ -170,7 +170,7 @@ def handle_visit(timeout=30):
 
 def surfe_video_view():
     if click_from_folder("surfe_video_view", min_search_time=20):
-        print("\n[Video Surfe View]")
+        print("[Video Surfe View]")
 
     return True
 
@@ -215,8 +215,8 @@ def handle_extension_task():
 
 
 # ================= MAIN LOOP =================
-def main():
-    while True:
+def main(is_running):
+    while is_running():
         open_extension()
         print("[OPEN EXTENSION]")
         time.sleep(3)
@@ -231,9 +231,4 @@ def main():
             continue
 
         time.sleep(2)
-
-
-if __name__ == "__main__":
-    main()
-    # handle_surfe_report()
 
