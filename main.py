@@ -88,7 +88,7 @@ def wait_for(folder, timeout=60, interval=INTERVAL):
 
     while time.time() - start < timeout:
         elapsed = int(time.time() - start)
-        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Waiting ...", end="")
+        print(f"[{elapsed//60:02}:{elapsed%60:02}] Waiting ...")
 
         result = find_image(images)
         if result:
