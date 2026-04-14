@@ -16,7 +16,7 @@ def browser_fokus():
 
 def open_extension():
     browser_fokus()
-    time.sleep(0.5)
+    time.sleep(2)
     pyautogui.hotkey('alt', 'shift', 's')
 
 def close_tab():
@@ -87,16 +87,14 @@ def wait_for(folder, timeout=60, interval=INTERVAL):
 
     while time.time() - start < timeout:
         elapsed = int(time.time() - start)
-        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Waiting ... ({folder})", end="")
+        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Waiting ...", end="")
 
         result = find_image(images)
         if result:
-            print()
             return result
 
         time.sleep(interval)
 
-    print()
     return None
 
 
@@ -128,30 +126,41 @@ def handle_verification():
         print("[SOLVING CAPTCHA]")
 
     if wait_for("verification_captcha_finished", timeout=120):
-        print("[CAPTCHA FINISHED]")
+        print("\n[CAPTCHA FINISHED]")
         close_tab()
 
     return True
 
-# ================= VISIT =================
-def handle_visit(timeout=20):
-    # if not find_image(get_images("error_page")):
-    #     print("[PAGE ERROR]")
-    #     close_tab()
-    #     return False
 
+# ================= VISIT =================
+def handle_visit(timeout=30):
     start_time = time.time()
 
     while time.time() - start_time < timeout:
+        elapsed = int(time.time() - start_time)
+        print(f"\r[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...", end="")
+
         url = get_current_url()
-        if not url:
+        if not url or "https://surfe.be/meta-redirect" in url:
             continue
 
-        if "https://surfe.be/video/view/1002703" in url:
+        if "https://surfe.be/video/view/" in url:
             surfe_video_view()
-            
-        if wait_for("task_wait_finished", timeout=VISIT_TIMEOUT):
-            print("[TASK FINISHED]")
+
+        if find_image(get_images("visit_error_page")):
+            print("\n[PAGE ERROR]")
+            close_tab()
+
+            success = handle_surfe_report("no_reward")
+            if not success:
+                print("\n[REPORT FAILED]")
+
+            close_tab()
+
+            return False
+
+        if find_image(get_images("visit_wait_finished")):
+            print("\n[TASK FINISHED]")
             close_tab()
 
             return True
@@ -161,9 +170,30 @@ def handle_visit(timeout=20):
 
 def surfe_video_view():
     if click_from_folder("surfe_video_view", min_search_time=20):
-        print("[Video Surfe View]")
+        print("\n[Video Surfe View]")
 
     return True
+
+
+def handle_surfe_report(reason="no_reward"):
+    open_extension()
+    print("[OPEN EXTENSION]")
+
+    if not click_from_folder("surfe_report_dislike", min_search_time=20):
+        return False
+
+    print("[FEEDBACK PAGE]")
+
+    path = f"surfe_report_feedback/{reason}"
+
+    if click_from_folder(path, min_search_time=40):
+        print(f"[Reason] {reason} selected!")
+        pyautogui.press("enter", interval=0.5)
+
+        return True
+
+    print(f"[WARNING] Failed or unknown reason: {reason}")
+    return False
 
 
 # ================= EXTENSION TASK =================
@@ -197,11 +227,13 @@ def main():
         if handle_extension_task():
             continue
 
-        if handle_visit():
+        if handle_visit(timeout=VISIT_TIMEOUT):
             continue
 
+        time.sleep(2)
 
 
 if __name__ == "__main__":
     main()
+    # handle_surfe_report()
 
