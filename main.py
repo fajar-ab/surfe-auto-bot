@@ -9,10 +9,11 @@ CONFIDENCE = 0.8
 INTERVAL = 1
 IMAGE_CACHE = {}
 VISIT_TIMEOUT = 300
+BROWSER = "Brave"
 
 # ================= WINDOW CONTROL =================
 def browser_fokus():
-    os.system("xdotool windowactivate --sync $(xdotool search --onlyvisible --class 'Brave' | tail -1)")
+    os.system(f"xdotool windowactivate --sync $(xdotool search --onlyvisible --class '{BROWSER}' | tail -1)")
 
 def open_extension():
     browser_fokus()
