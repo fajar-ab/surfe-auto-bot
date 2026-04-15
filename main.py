@@ -4,12 +4,7 @@ import pyperclip
 import time
 import os
 
-# ================= CONFIG =================
-CONFIDENCE = 0.8
-INTERVAL = 1
-IMAGE_CACHE = {}
-VISIT_TIMEOUT = 300
-BROWSER = "Brave"
+from config import CONFIDENCE, INTERVAL, IMAGE_CACHE, VISIT_TIMEOUT, BROWSER, RULES_URL_ACTIONS 
 
 # ================= WINDOW CONTROL =================
 def browser_fokus():
@@ -37,6 +32,7 @@ def get_current_url():
     time.sleep(0.2)
     pyautogui.hotkey('ctrl', 'c')
     time.sleep(0.2)
+    pyautogui.press('esc')
 
     return pyperclip.paste()
 
@@ -46,7 +42,7 @@ def load_images(folder_name: str):
     extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp')
 
     if not folder_path.exists():
-        print(f"[WARNING] Folder tidak ditemukan: {folder_path}")
+        print(f"[WARNING] Folder tidak ditemukan: {folder_path.replace("_", " ")}")
         return []
 
     images = []
@@ -136,6 +132,7 @@ def handle_verification():
 # ================= VISIT =================
 def handle_visit(timeout=30):
     start_time = time.time()
+    last_handled_url = None 
 
     while time.time() - start_time < timeout:
         elapsed = int(time.time() - start_time)
@@ -145,8 +142,15 @@ def handle_visit(timeout=30):
         if not url or "https://surfe.be/meta-redirect" in url:
             continue
 
-        if "https://surfe.be/video/view/" in url:
-            surfe_video_view()
+        if url != last_handled_url:
+            result = check_url_rules(url)
+
+            if result is False:
+                return False
+
+            if result is True:
+                print("[ACTION URL] Already handled")
+                last_handled_url = url
 
         if find_image(get_images("visit_error_page")):
             print("[PAGE ERROR]")
@@ -169,6 +173,38 @@ def handle_visit(timeout=30):
     return False
 
 
+def check_url_rules(current_url):
+    for rule in RULES_URL_ACTIONS:
+        for pattern in rule["patterns"]:
+            if pattern in current_url:
+                return handle_special_action(rule["action"])
+    return None
+
+
+def handle_special_action(action):
+    if action == "cancel_xdg":
+        print("[XDG DETECTED]")
+        time.sleep(5)
+        pyautogui.press("enter", presses=1)
+        return True
+
+    elif action == "surfe_video_view":
+        surfe_video_view()
+        return True
+
+    elif action in ["multiple_redirects", "breaks_extension", "no_reward", "unable_to_play"]:
+        print(f"DETECTED] {str(action).replace("_", " ")}")
+        close_tab()
+
+        success = handle_surfe_report("multiple_redirects")
+        if not success:
+            print("[REPORT FAILED]")
+            
+        close_tab()
+        return False   
+
+    return True
+
 def surfe_video_view():
     if click_from_folder("surfe_video_view", min_search_time=20):
         print("[Video Surfe View]")
@@ -188,12 +224,12 @@ def handle_surfe_report(reason="no_reward"):
     path = f"surfe_report_feedback/{reason}"
 
     if click_from_folder(path, min_search_time=40):
-        print(f"[Reason] {reason} selected!")
+        print(f"[Reason] {reason.replace("_", " ")} selected!")
         pyautogui.press("enter", interval=0.5)
 
         return True
 
-    print(f"[WARNING] Failed or unknown reason: {reason}")
+    print(f"[WARNING] Failed or unknown reason: {reason.replace("_", " ")}")
     return False
 
 
@@ -209,7 +245,13 @@ def handle_extension_task():
     
     if find_image(get_images("task_surfe_unexists"), min_search_time=2):
         print("[TASK NOT FOUND]")
+        close_tab()
 
+        success = handle_surfe_report("multiple_redirects")
+        if not success:
+            print("[REPORT FAILED]")
+
+        close_tab()
         return True
 
     return True
@@ -232,4 +274,3 @@ def main(is_running):
             continue
 
         time.sleep(2)
-
