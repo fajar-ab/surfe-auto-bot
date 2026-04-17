@@ -42,7 +42,7 @@ def load_images(folder_name: str):
     extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp')
 
     if not folder_path.exists():
-        print(f"[WARNING] Folder tidak ditemukan: {folder_path.replace("_", " ")}")
+        print(f"[WARNING] Folder tidak ditemukan: {folder_path}")
         return []
 
     images = []
