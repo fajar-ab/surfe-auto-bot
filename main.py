@@ -1,9 +1,9 @@
-from pathlib import Path
 import pyautogui
 import pyperclip
 import time
 import os
 
+from pathlib import Path
 from config import CONFIDENCE, INTERVAL, IMAGE_CACHE, VISIT_TIMEOUT, BROWSER, RULES_URL_ACTIONS 
 
 # ================= WINDOW CONTROL =================
@@ -119,6 +119,7 @@ def handle_verification():
     if click_from_folder("verification_captcha_button"):
         print("[CLICK CAPTCHA BUTTON]")
 
+    time.sleep(3)
     if click_from_folder("verification_re_captcha", min_search_time=5):
         print("[SOLVING CAPTCHA]")
 
@@ -130,11 +131,18 @@ def handle_verification():
 
 
 # ================= VISIT =================
-def handle_visit(timeout=30):
+def handle_visit(skip_state, timeout=30):
+    global skip_requested
     start_time = time.time()
     last_handled_url = None 
 
     while time.time() - start_time < timeout:
+        if skip_state["value"]:
+            print("[TASK SKIPPED]")
+            skip_state["value"] = False  
+            close_tab()
+            return False
+
         elapsed = int(time.time() - start_time)
         print(f"[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...")
 
@@ -169,7 +177,9 @@ def handle_visit(timeout=30):
             close_tab()
 
             return True
-    
+        
+    print("[TASK IS OVER]")
+    close_tab()
     return False
 
 
@@ -189,7 +199,9 @@ def handle_special_action(action):
         return True
 
     elif action == "surfe_video_view":
-        surfe_video_view()
+        if click_from_folder("surfe_video_view", min_search_time=20):
+            print("[Video Surfe View]")
+
         return True
 
     elif action in ["multiple_redirects", "breaks_extension", "no_reward", "unable_to_play"]:
@@ -202,12 +214,6 @@ def handle_special_action(action):
             
         close_tab()
         return False   
-
-    return True
-
-def surfe_video_view():
-    if click_from_folder("surfe_video_view", min_search_time=20):
-        print("[Video Surfe View]")
 
     return True
 
@@ -256,9 +262,8 @@ def handle_extension_task():
 
     return True
 
-
 # ================= MAIN LOOP =================
-def main(is_running):
+def main(is_running, skip_state):
     while is_running():
         open_extension()
         print("[OPEN EXTENSION]")
@@ -270,7 +275,7 @@ def main(is_running):
         if handle_extension_task():
             continue
 
-        if handle_visit(timeout=VISIT_TIMEOUT):
+        if handle_visit(skip_state, timeout=VISIT_TIMEOUT):
             continue
 
         time.sleep(2)
