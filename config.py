@@ -16,7 +16,10 @@ RULES_URL_ACTIONS = [
     },
     {
         "action": "multiple_redirects",
-        "patterns": ["https://politeconomics.org/"]
+        "patterns": [
+            "https://politeconomics.org/",
+            "https://supesolar.com/"
+        ]
     },
     {
         "action": "breaks_extension",
