@@ -160,8 +160,20 @@ def handle_visit(skip_state, timeout=30):
                 print("[ACTION URL] Already handled")
                 last_handled_url = url
 
+        if find_image(get_images("visit_youtube_error")) and "https://www.youtube.com/" in url:
+            print("[VISIT ERROR] Youtube not play")
+            close_tab()
+
+            success = handle_surfe_report("unable_to_play")
+            if not success:
+                print("[REPORT FAILED]")
+
+            close_tab()
+
+            return False
+
         if find_image(get_images("visit_error_page")):
-            print("[PAGE ERROR]")
+            print("[VISIT ERROR] Page not play")
             close_tab()
 
             success = handle_surfe_report("no_reward")
