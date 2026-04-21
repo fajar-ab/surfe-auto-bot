@@ -19,7 +19,8 @@ RULES_URL_ACTIONS = [
         "patterns": [
             "https://politeconomics.org/",
             "https://supesolar.com/",
-            "https://instukzia.com/"
+            "https://instukzia.com/",
+            "https://stroihome.net/"
         ]
     },
     {
