@@ -147,7 +147,7 @@ def handle_visit(skip_state, timeout=30):
         print(f"[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...")
 
         url = get_current_url()
-        if not url or "https://surfe.be/meta-redirect" in url:
+        if not url or "surfe.be/meta-redirect" in url:
             continue
 
         if url != last_handled_url:
@@ -160,7 +160,7 @@ def handle_visit(skip_state, timeout=30):
                 print("[ACTION URL] Already handled")
                 last_handled_url = url
 
-        if find_image(get_images("visit_youtube_error")) and "https://www.youtube.com/" in url:
+        if find_image(get_images("visit_youtube_error")) and "www.youtube.com" in url:
             print("[VISIT ERROR] Youtube not play")
             close_tab()
 
