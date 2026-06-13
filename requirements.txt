@@ -4,3 +4,4 @@ pyscreeze
 opencv-python
 python-xlib
 requests
+pyperclip

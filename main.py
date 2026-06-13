@@ -1,293 +1,35 @@
-import pyautogui
-import pyperclip
 import time
-import os
 
-from pathlib import Path
-from config import CONFIDENCE, INTERVAL, IMAGE_CACHE, VISIT_TIMEOUT, BROWSER, RULES_URL_ACTIONS 
+from config import VISIT_TIMEOUT
+from core.logger import logger
+from core.window import open_extension
+from tasks.surfe import handle_extension_task, handle_visit
+from tasks.verification import handle_verification
 
-# ================= WINDOW CONTROL =================
-def browser_fokus():
-    os.system(f"xdotool windowactivate --sync $(xdotool search --onlyvisible --class '{BROWSER}' | tail -1)")
+# Stats
+stats = {"tasks_completed": 0, "reports_made": 0, "start_time": None}
 
-def open_extension():
-    browser_fokus()
-    time.sleep(2)
-    pyautogui.hotkey('alt', 'shift', 's')
 
-def close_tab():
-    browser_fokus()
-    time.sleep(0.3)
-    pyautogui.hotkey('ctrl', 'w')
-
-def refresh_tab():
-    browser_fokus()
-    time.sleep(0.3)
-    pyautogui.hotkey('ctrl', 'r')
-
-def get_current_url():
-    browser_fokus()
-    time.sleep(0.3)
-    pyautogui.hotkey('ctrl', 'l') 
-    time.sleep(0.2)
-    pyautogui.hotkey('ctrl', 'c')
-    time.sleep(0.2)
-    pyautogui.press('esc')
-
-    return pyperclip.paste()
-
-# ================= IMAGE HANDLING =================
-def load_images(folder_name: str):
-    folder_path = Path.cwd() / "images" / folder_name
-    extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp')
-
-    if not folder_path.exists():
-        print(f"[WARNING] Folder tidak ditemukan: {folder_path}")
-        return []
-
-    images = []
-    for ext in extensions:
-        images.extend(sorted(folder_path.glob(ext)))
-
-    return images
-
-
-def get_images(folder_name: str):
-    if folder_name not in IMAGE_CACHE:
-        IMAGE_CACHE[folder_name] = load_images(folder_name)
-    return IMAGE_CACHE[folder_name]
-
-
-# ================= CORE ENGINE =================
-def find_image(images, min_search_time=0.5):
-    for img in images:
-        try:
-            result = pyautogui.locateOnScreen(
-                str(img),
-                confidence=CONFIDENCE,
-                grayscale=True,
-                minSearchTime=min_search_time
-            )
-            if result:
-                return result
-        except Exception:
-            continue
-    return None
-
-
-def wait_for(folder, timeout=60, interval=INTERVAL):
-    start = time.time()
-    images = get_images(folder)
-
-    if not images:
-        return None
-
-    while time.time() - start < timeout:
-        elapsed = int(time.time() - start)
-        print(f"[{elapsed//60:02}:{elapsed%60:02}] Waiting ...")
-
-        result = find_image(images)
-        if result:
-            return result
-
-        time.sleep(interval)
-
-    return None
-
-
-def click(match_result, duration=0.3):
-    if not match_result:
-        return False
-
-    x, y = pyautogui.center(match_result)
-    pyautogui.click(x, y, duration=duration)
-    return True
-
-
-def click_from_folder(folder, min_search_time=0.5):
-    result = find_image(get_images(folder), min_search_time)
-    return click(result)
-
-
-# ================= VERIFICATION =================
-def handle_verification():
-    if not find_image(get_images("verification_required")):
-        return False
-
-    print("[VERIFICATION REQUIRED]")
-
-    if click_from_folder("verification_captcha_button"):
-        print("[CLICK CAPTCHA BUTTON]")
-
-    time.sleep(3)
-    if click_from_folder("verification_re_captcha", min_search_time=5):
-        print("[SOLVING CAPTCHA]")
-
-    if wait_for("verification_captcha_finished", timeout=120):
-        print("[CAPTCHA FINISHED]")
-        close_tab()
-
-    return True
-
-
-# ================= VISIT =================
-def handle_visit(skip_state, timeout=30):
-    global skip_requested
-    start_time = time.time()
-    last_handled_url = None 
-
-    while time.time() - start_time < timeout:
-        if skip_state["value"]:
-            print("[TASK SKIPPED]")
-            skip_state["value"] = False  
-            close_tab()
-            return False
-
-        elapsed = int(time.time() - start_time)
-        print(f"[{elapsed//60:02}:{elapsed%60:02}] Visit Waiting ...")
-
-        url = get_current_url()
-        if not url or "surfe.be/meta-redirect" in url:
-            continue
-
-        if url != last_handled_url:
-            result = check_url_rules(url)
-
-            if result is False:
-                return False
-
-            if result is True:
-                print("[ACTION URL] Already handled")
-                last_handled_url = url
-
-        if find_image(get_images("visit_youtube_error")) and "www.youtube.com" in url:
-            print("[VISIT ERROR] Youtube not play")
-            close_tab()
-
-            success = handle_surfe_report("unable_to_play")
-            if not success:
-                print("[REPORT FAILED]")
-
-            close_tab()
-
-            return False
-
-        if find_image(get_images("visit_error_page")):
-            print("[VISIT ERROR] Page not play")
-            close_tab()
-
-            success = handle_surfe_report("no_reward")
-            if not success:
-                print("[REPORT FAILED]")
-
-            close_tab()
-
-            return False
-
-        if find_image(get_images("visit_wait_finished")):
-            print("[TASK FINISHED]")
-            close_tab()
-
-            return True
-        
-    print("[TASK IS OVER]")
-    close_tab()
-    return False
-
-
-def check_url_rules(current_url):
-    for rule in RULES_URL_ACTIONS:
-        for pattern in rule["patterns"]:
-            if pattern in current_url:
-                return handle_special_action(rule["action"])
-    return None
-
-
-def handle_special_action(action):
-    if action == "cancel_xdg":
-        print("[XDG DETECTED]")
-        time.sleep(5)
-        pyautogui.press("enter", presses=1)
-        return True
-
-    elif action == "surfe_video_view":
-        if click_from_folder("surfe_video_view", min_search_time=20):
-            print("[Video Surfe View]")
-
-        return True
-
-    elif action in ["multiple_redirects", "breaks_extension", "no_reward", "unable_to_play"]:
-        print(f"DETECTED] {str(action).replace("_", " ")}")
-        close_tab()
-
-        success = handle_surfe_report("multiple_redirects")
-        if not success:
-            print("[REPORT FAILED]")
-            
-        close_tab()
-        return False   
-
-    return True
-
-
-def handle_surfe_report(reason="no_reward"):
-    open_extension()
-    print("[OPEN EXTENSION]")
-
-    if not click_from_folder("surfe_report_dislike", min_search_time=20):
-        return False
-
-    print("[FEEDBACK PAGE]")
-
-    path = f"surfe_report_feedback/{reason}"
-
-    if click_from_folder(path, min_search_time=40):
-        print(f"[Reason] {reason.replace("_", " ")} selected!")
-        pyautogui.press("enter", interval=0.5)
-
-        return True
-
-    print(f"[WARNING] Failed or unknown reason: {reason.replace("_", " ")}")
-    return False
-
-
-# ================= EXTENSION TASK =================
-def handle_extension_task():
-    if find_image(get_images("task_surfe_exists"), min_search_time=2):
-        print("[TASK FOUND]")
-
-        if click_from_folder("task_start_buttom"):
-            print("[CLICK START]")
-        
-        return False
-    
-    if find_image(get_images("task_surfe_unexists"), min_search_time=2):
-        print("[TASK NOT FOUND]")
-        close_tab()
-
-        success = handle_surfe_report("multiple_redirects")
-        if not success:
-            print("[REPORT FAILED]")
-
-        close_tab()
-        return True
-
-    return True
-
-# ================= MAIN LOOP =================
 def main(is_running, skip_state):
+    stats["start_time"] = time.time()
+
     while is_running():
-        open_extension()
-        print("[OPEN EXTENSION]")
-        time.sleep(3)
+        try:
+            open_extension()
+            logger.info("OPEN EXTENSION")
+            time.sleep(3)
 
-        if handle_verification():
-            continue
+            if handle_verification():
+                continue
 
-        if handle_extension_task():
-            continue
+            if handle_extension_task():
+                continue
 
-        if handle_visit(skip_state, timeout=VISIT_TIMEOUT):
-            continue
+            if handle_visit(skip_state, timeout=VISIT_TIMEOUT, is_running=is_running):
+                stats["tasks_completed"] += 1
+                continue
 
-        time.sleep(2)
+            time.sleep(2)
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}")
+            time.sleep(5)
