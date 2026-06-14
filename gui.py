@@ -9,6 +9,7 @@ from main import main, stats
 # ==== STATE ====
 running = False
 skip_state = {"value": False}
+logs_visible = False
 
 
 # ==== FUNCTION CHECK ====
@@ -19,6 +20,20 @@ def is_running():
 def request_skip():
     skip_state["value"] = True
     logger.info("SKIP REQUESTED")
+
+
+def toggle_logs():
+    global logs_visible
+    if logs_visible:
+        log_frame.grid_remove()
+        btn_toggle.config(text="▼ Show Logs")
+        root.geometry("300x125")
+        logs_visible = False
+    else:
+        log_frame.grid(row=4, column=0, sticky="nsew", pady=(5, 0))
+        btn_toggle.config(text="▲ Hide Logs")
+        root.geometry("300x350")
+        logs_visible = True
 
 
 # ==== START / STOP ====
@@ -73,13 +88,14 @@ def update_stats():
 # ==== GUI SETUP ====
 root = tk.Tk()
 root.title("Surfe Bot Pro")
-root.geometry("300x350")
+root.geometry("300x125")
 
 # ==== STYLE ====
 style = ttk.Style()
 style.configure("Idle.TLabel", foreground="gray")
 style.configure("Running.TLabel", foreground="green")
 style.configure("Stopped.TLabel", foreground="red")
+style.configure("Small.TButton", font=("TkDefaultFont", 8))
 
 # ==== ROOT CONFIG ====
 root.grid_rowconfigure(0, weight=1)
@@ -111,9 +127,16 @@ status_label.grid(row=1, column=0, pady=2)
 stats_label = ttk.Label(main_frame, text="Tasks: 0 | Uptime: 00:00:00")
 stats_label.grid(row=2, column=0, pady=2)
 
+# ==== TOGGLE BUTTON ====
+btn_toggle = ttk.Button(
+    main_frame, text="▼ Show Logs", style="Small.TButton", command=toggle_logs
+)
+btn_toggle.grid(row=3, column=0, pady=2)
+
 # ==== LOG BOX ====
 log_frame = ttk.LabelFrame(main_frame, text="Logs")
-log_frame.grid(row=4, column=0, sticky="nsew", pady=(5, 0))
+# Start hidden
+# log_frame.grid(row=4, column=0, sticky="nsew", pady=(5, 0))
 log_frame.grid_rowconfigure(0, weight=1)
 log_frame.grid_columnconfigure(0, weight=1)
 

@@ -72,7 +72,6 @@ def handle_special_action(action):
         "no_reward",
         "unable_to_play",
     ]:
-        # FIXED TYPO HERE
         logger.info(f"[DETECTED] {str(action).replace('_', ' ')}")
         close_tab()
         success = handle_surfe_report(
