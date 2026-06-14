@@ -6,6 +6,7 @@ from config import RULES_URL_ACTIONS
 from core.image import click_from_folder, find_image, get_images, wait_for
 from core.logger import logger
 from core.window import close_tab, get_current_url, open_extension
+from region_selector import region
 
 
 def handle_extension_task():
@@ -130,7 +131,7 @@ def handle_visit(skip_state, timeout=30, is_running=None):
             close_tab()
             return False
 
-        if find_image(get_images("visit_wait_finished")):
+        if find_image(get_images("visit_wait_finished"), region=(420, 560, 506, 95)):
             logger.info("TASK FINISHED")
             close_tab()
             return True
