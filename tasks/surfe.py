@@ -6,7 +6,6 @@ from config import RULES_URL_ACTIONS
 from core.image import click_from_folder, find_image, get_images, wait_for
 from core.logger import logger
 from core.window import close_tab, get_current_url, open_extension
-from region_selector import region
 
 
 def handle_extension_task():
