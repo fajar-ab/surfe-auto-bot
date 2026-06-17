@@ -130,7 +130,7 @@ def handle_visit(skip_state, timeout=30, is_running=None):
             close_tab()
             return False
 
-        if find_image(get_images("visit_wait_finished"), region=(420, 560, 506, 95)):
+        if find_image(get_images("visit_wait_finished"), region=(192, 417, 509, 88)):
             logger.info("TASK FINISHED")
             close_tab()
             return True
